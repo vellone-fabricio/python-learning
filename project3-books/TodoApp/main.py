@@ -1,93 +1,19 @@
-from typing import Optional
-
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends
 import models
-from database import engine, SessionLocal
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from database import engine
+from routers import auth, todos
+from company import companyapis, dependencies
 
 app = FastAPI()
 
 models.Base.metadata.create_all(bind=engine)
 
-def get_db():
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-class Todo(BaseModel):
-    title: str
-    description: Optional[str]
-    priority: int = Field(gt=0, lt=6, description="Should be between 1-5")
-    complete: bool
-
-@app.get("/")
-async def read_all(db: Session = Depends(get_db)):
-    return db.query(models.Todos).all()
-
-@app.get("/todo/{todo_id}")
-async def read_todo(todo_id: int, db: Session = Depends(get_db)):
-    todo_model = db.query(models.Todos).filter(models.Todos.id == todo_id).first()
-
-    if todo_model is not None:
-        return todo_model
-
-    raise http_exception()
-
-@app.post("/")
-async def create_todo(todo:Todo, db: Session = Depends(get_db)):
-    todo_model = models.Todos()
-    todo_model.title = todo.title
-    todo_model.description = todo.description
-    todo_model.priority = todo.priority
-    todo_model.complete = todo.complete
-
-    db.add(todo_model)
-    db.commit()
-
-    return {
-        'status': status.HTTP_201_CREATED,
-        'message': 'create successful'
-    }
-
-
-@app.put("/{todo_id}")
-async def update_todo(todo_id: int, todo: Todo, db: Session = Depends(get_db)):
-    todo_model = db.query(models.Todos).filter(models.Todos.id == todo_id).first()
-
-    if todo_model is None:
-        raise http_exception()
-
-    todo_model.title = todo.title
-    todo_model.description = todo.description
-    todo_model.priority = todo.priority
-    todo_model.complete = todo.complete
-
-    db.add(todo_model)
-    db.commit()
-
-    return {
-        'status': status.HTTP_200_OK,
-        'message': 'Update successful'
-    }
-
-
-@app.delete("/{todo_id}")
-async def delete_todo(todo_id: int, db: Session = Depends(get_db)):
-    todo_model = db.query(models.Todos).filter(models.Todos.id == todo_id).first()
-
-    if todo_model is None:
-        raise http_exception()
-
-    db.query(models.Todos).filter(models.Todos.id == todo_id).delete()
-    db.commit()
-    return {
-        'status': status.HTTP_200_OK,
-        'message': 'Update successful'
-    }
-
-def http_exception():
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data not found!")
+app.include_router(auth.router)
+app.include_router(todos.router)
+app.include_router(
+    companyapis.router,
+    prefix="/companyapis",
+    tags=["companyapis"],
+    dependencies=[Depends(dependencies.get_token_header)],
+    responses={418: {"company": "."}}
+)
