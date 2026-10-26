@@ -29,24 +29,12 @@ class Solution:
 
     @staticmethod
     def twoSum(nums: list[int], target: int) -> list[int]:
-        skipped_index = []
-        res = 0
+        seen = {}
         for index, item in enumerate(nums):
-            # if index in skipped_index:
-            #     continue
-
-            if index + 1 >= len(nums):
-                continue
-
-            for ix, j in enumerate(nums[index+1:]):
-                new_index = ix + index + 1
-                # if j > target:
-                #     skipped_index.append(new_index)
-                #     continue
-            
-                res = item + j
-                if res == target:
-                    return [index, new_index]
+            complement = target - item
+            if complement in seen:
+                return [seen[complement], index]
+            seen[item] = index
 
 # ----------------------------------------------------------------------------
 # Exercise to remove the outer parentheses
